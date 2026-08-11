@@ -9,19 +9,36 @@ import {
 } from 'react-native';
 import type { Task } from '../../src/components/TaskList';
 import { darkTheme, lightTheme, type Theme } from '../../src/constants/theme';
+import { translations } from '../../src/constants/translations';
+import { getCurrentLanguage, getStoredLanguage, subscribeToLanguageChanges } from '../../src/utils/language';
 
 export default function Stats() {
   const colorScheme = useColorScheme();
   const theme: Theme = colorScheme === 'dark' ? darkTheme : lightTheme;
   const styles = createStyles(theme);
 
+  const [language, setLanguage] = useState(getCurrentLanguage());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [weekStats, setWeekStats] = useState<Record<string, number>>({});
   const [topStreaks, setTopStreaks] = useState<{ name: string; streak: number }[]>([]);
 
   useEffect(() => {
     loadTasks();
+    loadLanguage();
+
+    const unsubscribe = subscribeToLanguageChanges((nextLanguage) => {
+      setLanguage(nextLanguage);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
+
+  const loadLanguage = async () => {
+    const stored = await getStoredLanguage();
+    setLanguage(stored);
+  };
 
   const loadTasks = async () => {
     try {
@@ -71,6 +88,7 @@ export default function Stats() {
     setTopStreaks(streaks);
   };
 
+  const t = translations[language];
   const totalCompleted = tasks.filter((t) => t.completed).length;
   const totalTasks = tasks.length;
   const totalStreak = tasks.reduce((sum, t) => sum + (t.streak ?? 0), 0);
@@ -83,7 +101,7 @@ export default function Stats() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Statistiken</Text>
+        <Text style={[styles.title, { color: theme.text }]}>{t.statsTitle}</Text>
       </View>
 
       <ScrollView
@@ -93,28 +111,28 @@ export default function Stats() {
         {/* Overview Cards */}
         <View style={styles.cardGrid}>
           <View style={[styles.card, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Erledigt heute</Text>
+            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>{t.completedToday}</Text>
             <Text style={[styles.cardValue, { color: theme.accent }]}>
               {totalCompleted}
             </Text>
           </View>
 
           <View style={[styles.card, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Gesamt Streaks</Text>
+            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>{t.totalStreaks}</Text>
             <Text style={[styles.cardValue, { color: theme.accent }]}>
               🔥 {totalStreak}
             </Text>
           </View>
 
           <View style={[styles.card, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Diese Woche</Text>
+            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>{t.thisWeek}</Text>
             <Text style={[styles.cardValue, { color: theme.accent }]}>
               {weekCompleted}
             </Text>
           </View>
 
           <View style={[styles.card, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Aufgaben</Text>
+            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>{t.tasks}</Text>
             <Text style={[styles.cardValue, { color: theme.accent }]}>
               {totalTasks}
             </Text>
@@ -124,7 +142,7 @@ export default function Stats() {
         {/* Weekly Chart */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Letzte 7 Tage
+            {t.lastSevenDays}
           </Text>
           <View style={styles.weekChart}>
             {days.map((day, idx) => {
@@ -157,7 +175,7 @@ export default function Stats() {
         {topStreaks.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Top Streaks 🔥
+              {t.topStreaks}
             </Text>
             <View style={styles.streakList}>
               {topStreaks.map((item, idx) => (

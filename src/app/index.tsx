@@ -14,6 +14,8 @@ import ParticleExplosion from '../../src/components/ParticleExplosion';
 import TaskForm from '../../src/components/TaskForm';
 import TaskList, { Task } from '../../src/components/TaskList';
 import { darkTheme, lightTheme, type Theme } from '../../src/constants/theme';
+import { translations } from '../../src/constants/translations';
+import { getCurrentLanguage, getStoredLanguage, subscribeToLanguageChanges } from '../../src/utils/language';
 import SoundManager from '../../src/utils/SoundManager';
 
 const { width, height } = Dimensions.get('window');
@@ -28,6 +30,7 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [particleKey, setParticleKey] = useState(0);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [language, setLanguage] = useState(getCurrentLanguage());
   const [sortBy, setSortBy] = useState<SortBy>('dueDate');
   const [showCompleted, setShowCompleted] = useState(true);
   const [forceTheme, setForceTheme] = useState<'light' | 'dark' | null>(null);
@@ -35,21 +38,33 @@ export default function Home() {
 
   const effectiveIsDark = forceTheme ? forceTheme === 'dark' : isDark;
   const theme: Theme = effectiveIsDark ? darkTheme : lightTheme;
+  const t = translations[language];
   const styles = createStyles(theme);
 
   useEffect(() => {
     soundManagerRef.current = new SoundManager();
     soundManagerRef.current.init();
     loadTasks();
+    loadLanguage();
+
+    const unsubscribe = subscribeToLanguageChanges((nextLanguage) => {
+      setLanguage(nextLanguage);
+    });
 
     return () => {
       soundManagerRef.current?.cleanup();
+      unsubscribe();
     };
   }, []);
 
   useEffect(() => {
     saveTasks();
   }, [tasks]);
+
+  const loadLanguage = async () => {
+    const stored = await getStoredLanguage();
+    setLanguage(stored);
+  };
 
   const loadTasks = async () => {
     try {
@@ -191,9 +206,9 @@ export default function Home() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <View>
-          <Text style={[styles.title, { color: theme.text }]}>To-Dos</Text>
+          <Text style={[styles.title, { color: theme.text }]}>{t.toDoTitle}</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            {completedCount} von {tasks.length} erledigt
+            {t.completedCount.replace('{completed}', String(completedCount)).replace('{total}', String(tasks.length))}
           </Text>
         </View>
 
@@ -260,7 +275,7 @@ export default function Home() {
               { color: showCompleted ? '#fff' : theme.text },
             ]}
           >
-            {showCompleted ? 'Alle' : 'Offen'}
+            {showCompleted ? t.all : t.open}
           </Text>
         </TouchableOpacity>
       </View>
@@ -279,6 +294,7 @@ export default function Home() {
           onDelete={deleteTask}
           onEdit={startEditTask}
           theme={theme}
+          t={t}
         />
       </ScrollView>
 
@@ -302,6 +318,7 @@ export default function Home() {
       >
         <TaskForm
           theme={theme}
+          t={t}
           onAdd={editingTask ? updateTask : addTask}
           onClose={() => setShowForm(false)}
           editingTask={editingTask}

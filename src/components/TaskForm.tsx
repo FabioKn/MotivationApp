@@ -11,24 +11,28 @@ import {
 } from 'react-native';
 import DatePicker from 'react-native-date-picker';
 import type { Theme } from '../constants/theme';
+import { translations, type Language } from '../constants/translations';
 import type { Task } from './TaskList';
+
+type Translation = (typeof translations)[Language];
 
 const { width } = Dimensions.get('window');
 
-const PREDEFINED_TASKS = [
-  { name: 'Pflanzen gießen', description: 'Alle Pflanzen gießen', emoji: '🌱' },
-  { name: 'Aufräumen', description: 'Zimmer aufräumen', emoji: '🧹' },
-  { name: 'Abwasch', description: 'Geschirr spülen', emoji: '🍽️' },
-  { name: 'Wäsche waschen', description: 'Wäsche waschen', emoji: '🧺' },
-  { name: 'Staubsaugen', description: 'Boden absaugen', emoji: '🧹' },
-  { name: 'Lernen', description: 'Schulstoff/Wissen', emoji: '📚' },
-  { name: 'Badezimmer putzen', description: 'Bad saubermachen', emoji: '🛁' },
-  { name: 'Sport', description: 'Bewegung/Training', emoji: '🏃' },
-  { name: 'Lesen', description: 'Zeit zum Lesen', emoji: '📖' },
+const getPredefinedTasks = (t: Translation) => [
+  { name: t.predefinedWaterPlantsName, description: t.predefinedWaterPlantsDescription, emoji: '🌱' },
+  { name: t.predefinedCleanUpName, description: t.predefinedCleanUpDescription, emoji: '🧹' },
+  { name: t.predefinedDishesName, description: t.predefinedDishesDescription, emoji: '🍽️' },
+  { name: t.predefinedLaundryName, description: t.predefinedLaundryDescription, emoji: '🧺' },
+  { name: t.predefinedVacuumName, description: t.predefinedVacuumDescription, emoji: '🧹' },
+  { name: t.predefinedLearnName, description: t.predefinedLearnDescription, emoji: '📚' },
+  { name: t.predefinedBathroomName, description: t.predefinedBathroomDescription, emoji: '🛁' },
+  { name: t.predefinedSportName, description: t.predefinedSportDescription, emoji: '🏃' },
+  { name: t.predefinedReadName, description: t.predefinedReadDescription, emoji: '📖' },
 ];
 
 interface TaskFormProps {
   theme: Theme;
+  t: Translation;
   onAdd: (taskData: Omit<Task, 'id' | 'completed' | 'createdAt' | 'streak' | 'lastCompleted'>) => void;
   onClose: () => void;
   editingTask?: Task | null;
@@ -51,6 +55,7 @@ const dateToISOString = (date: Date): string => {
 
 const TaskForm: React.FC<TaskFormProps> = ({
   theme,
+  t,
   onAdd,
   onClose,
   editingTask,
@@ -66,6 +71,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
   const [pickerDate, setPickerDate] = useState(new Date());
 
   const formStyles = createFormStyles(theme);
+  const predefinedTasks = getPredefinedTasks(t);
 
   useEffect(() => {
     if (editingTask) {
@@ -92,12 +98,12 @@ const TaskForm: React.FC<TaskFormProps> = ({
 
   const handleSubmit = () => {
     if (!name.trim()) {
-      alert('Bitte gib einen Aufgabennamen ein');
+      alert(t.enterTaskName);
       return;
     }
 
     if (taskType === 'once' && !dueDate) {
-      alert('Bitte wähle ein Fälligkeitsdatum');
+      alert(t.selectDueDate);
       return;
     }
 
@@ -118,7 +124,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
     setRecurringDays('1');
   };
 
-  const selectPredefined = (task: typeof PREDEFINED_TASKS[0]) => {
+  const selectPredefined = (task: (typeof predefinedTasks)[number]) => {
     setName(task.name);
     setDescription(task.description);
     setEmoji(task.emoji);
@@ -133,7 +139,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
           <Text style={[formStyles.closeButton, { color: theme.accent }]}>✕</Text>
         </TouchableOpacity>
         <Text style={[formStyles.headerTitle, { color: theme.text }]}>
-          {editingTask ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
+          {editingTask ? t.editTask : t.newTask}
         </Text>
         <View style={{ width: 20 }} />
       </View>
@@ -146,10 +152,10 @@ const TaskForm: React.FC<TaskFormProps> = ({
         {showPredefined && !editingTask && (
           <>
             <Text style={[formStyles.sectionTitle, { color: theme.text }]}>
-              Schnell hinzufügen
+              {t.quickAdd}
             </Text>
             <View style={formStyles.predefinedGrid}>
-              {PREDEFINED_TASKS.map((task, index) => (
+              {predefinedTasks.map((task, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[
@@ -177,7 +183,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             />
 
             <Text style={[formStyles.sectionTitle, { color: theme.text }]}>
-              Oder selbst erstellen
+              {t.orCreateYourOwn}
             </Text>
           </>
         )}
@@ -185,7 +191,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         {/* Emoji Input */}
         <View>
           <Text style={[formStyles.label, { color: theme.text }]}>
-            Emoji (Optional)
+            {t.emoji}
           </Text>
           <TextInput
             style={[
@@ -196,21 +202,21 @@ const TaskForm: React.FC<TaskFormProps> = ({
                 borderColor: theme.border,
               },
             ]}
-            placeholder="z.B. 🌱"
+            placeholder={t.emojiPlaceholder}
             placeholderTextColor={theme.textSecondary}
             value={emoji}
             onChangeText={setEmoji}
             maxLength={2}
           />
           <Text style={[formStyles.sublabel, { color: theme.textSecondary }]}>
-            Tippe ein Emoji aus deiner Tastatur
+            {t.emojiHint}
           </Text>
         </View>
 
         {/* Name Input */}
         <View style={formStyles.spacer}>
           <Text style={[formStyles.label, { color: theme.text }]}>
-            Aufgabenname
+            {t.taskName}
           </Text>
           <TextInput
             style={[
@@ -221,7 +227,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                 borderColor: theme.border,
               },
             ]}
-            placeholder="z.B. Küche putzen"
+            placeholder={t.taskNamePlaceholder}
             placeholderTextColor={theme.textSecondary}
             value={name}
             onChangeText={setName}
@@ -232,7 +238,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         {/* Description Input */}
         <View style={formStyles.spacer}>
           <Text style={[formStyles.label, { color: theme.text }]}>
-            Beschreibung (Optional)
+            {t.description}
           </Text>
           <TextInput
             style={[
@@ -244,7 +250,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                 borderColor: theme.border,
               },
             ]}
-            placeholder="Notizen oder Details..."
+            placeholder={t.descriptionPlaceholder}
             placeholderTextColor={theme.textSecondary}
             value={description}
             onChangeText={setDescription}
@@ -264,7 +270,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             onPress={() => setTaskType('once')}
           >
             <Text style={[formStyles.typeButtonText, { color: taskType === 'once' ? '#fff' : theme.text }]}>
-              Einmalig
+              {t.once}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -276,7 +282,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             onPress={() => setTaskType('recurring')}
           >
             <Text style={[formStyles.typeButtonText, { color: taskType === 'recurring' ? '#fff' : theme.text }]}>
-              Wiederkehrend
+              {t.recurring}
             </Text>
           </TouchableOpacity>
         </View>
@@ -285,7 +291,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         {taskType === 'once' && (
           <View style={formStyles.spacer}>
             <Text style={[formStyles.label, { color: theme.text }]}>
-              Fälligkeitsdatum
+              {t.dueDate}
             </Text>
             <TouchableOpacity
               style={[
@@ -298,7 +304,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
               onPress={() => setShowDatePicker(true)}
             >
               <Text style={[formStyles.dateButtonText, { color: theme.text }]}>
-                {dueDate ? formatDateForDisplay(dueDate) : '📅 Datum wählen'}
+                {dueDate ? formatDateForDisplay(dueDate) : t.selectDate}
               </Text>
             </TouchableOpacity>
           </View>
@@ -330,7 +336,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                   </Text>
                 </TouchableOpacity>
                 <Text style={[formStyles.datePickerTitle, { color: theme.text }]}>
-                  Datum wählen
+                  {t.selectDate}
                 </Text>
                 <View style={{ width: 30 }} />
               </View>
@@ -351,7 +357,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                 ]}
                 onPress={() => handleDateConfirm(pickerDate)}
               >
-                <Text style={formStyles.datePickerButtonText}>Bestätigen</Text>
+                <Text style={formStyles.datePickerButtonText}>{t.save}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -361,7 +367,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         {taskType === 'recurring' && (
           <View style={formStyles.spacer}>
             <Text style={[formStyles.label, { color: theme.text }]}>
-              Alle wieviele Tage?
+              {t.everyDays}
             </Text>
             <View style={formStyles.recurringButtonGroup}>
               {[1, 2, 3, 7].map((days) => (
@@ -404,7 +410,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                   borderColor: theme.border,
                 },
               ]}
-              placeholder="Oder Anzahl eingeben..."
+              placeholder={t.enterDays}
               placeholderTextColor={theme.textSecondary}
               value={recurringDays}
               onChangeText={setRecurringDays}
@@ -432,7 +438,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
           onPress={onClose}
         >
           <Text style={[formStyles.buttonText, { color: theme.text }]}>
-            Abbrechen
+            {t.cancel}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -440,7 +446,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
           onPress={handleSubmit}
         >
           <Text style={[formStyles.buttonText, { color: '#ffffff' }]}>
-            {editingTask ? 'Speichern' : 'Hinzufügen'}
+            {editingTask ? t.save : t.addTask}
           </Text>
         </TouchableOpacity>
       </View>

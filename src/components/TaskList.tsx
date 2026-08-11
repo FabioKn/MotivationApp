@@ -6,6 +6,9 @@ import {
   View,
 } from 'react-native';
 import type { Theme } from '../constants/theme';
+import { translations, type Language } from '../constants/translations';
+
+type Translation = (typeof translations)[Language];
 
 export interface Task {
   id: string;
@@ -28,10 +31,11 @@ interface TaskListProps {
   onDelete: (taskId: string) => void;
   onEdit: (task: Task) => void;
   theme: Theme;
+  t: Translation;
 }
 
 // Hilfsunktionen für Datum-Formatierung
-const formatDueDate = (dateString: string): string => {
+const formatDueDate = (dateString: string, t: Translation): string => {
   const dueDate = new Date(dateString);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -40,30 +44,31 @@ const formatDueDate = (dateString: string): string => {
   const diffTime = dueDate.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'Heute fällig';
-  if (diffDays === 1) return 'Morgen fällig';
-  if (diffDays === -1) return 'Überfällig seit 1 Tag';
-  if (diffDays < -1) return `Überfällig seit ${Math.abs(diffDays)} Tagen`;
+  if (diffDays === 0) return t.today;
+  if (diffDays === 1) return t.tomorrow;
+  if (diffDays === -1) return `${t.overdueSince} 1 ${t.days}`;
+  if (diffDays < -1) return `${t.overdueSince} ${Math.abs(diffDays)} ${t.days}`;
 
-  const weekday = dueDate.toLocaleDateString('de-DE', { weekday: 'long' });
+  const locale = t === translations.en ? 'en-US' : 'de-DE';
+  const weekday = dueDate.toLocaleDateString(locale, { weekday: 'long' });
 
   if (diffDays <= 7) {
-    return `Fällig am ${weekday}`;
+    return `${t.dueOn} ${weekday}`;
   }
 
-  const formatted = dueDate.toLocaleDateString('de-DE', {
+  const formatted = dueDate.toLocaleDateString(locale, {
     weekday: 'long',
     day: '2-digit',
     month: '2-digit',
   });
 
-  return `Fällig am ${formatted}`;
+  return `${t.dueOn} ${formatted}`;
 };
 
-const formatNextDate = (baseDate: string, recurringDays?: number): string => {
+const formatNextDate = (baseDate: string, recurringDays: number | undefined, t: Translation): string => {
   const nextDate = new Date(baseDate);
   nextDate.setDate(nextDate.getDate() + (recurringDays || 1));
-  return formatDueDate(nextDate.toISOString().split('T')[0]);
+  return formatDueDate(nextDate.toISOString().split('T')[0], t);
 };
 
 const TaskList: React.FC<TaskListProps> = ({
@@ -72,12 +77,13 @@ const TaskList: React.FC<TaskListProps> = ({
   onDelete,
   onEdit,
   theme,
+  t,
 }) => {
   if (tasks.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-          Keine Aufgaben noch. Lass uns anfangen! 🎯
+          {t.noTasks}
         </Text>
       </View>
     );
@@ -93,6 +99,7 @@ const TaskList: React.FC<TaskListProps> = ({
           onDelete={() => onDelete(task.id)}
           onEdit={() => onEdit(task)}
           theme={theme}
+          t={t}
         />
       ))}
     </View>
@@ -105,6 +112,7 @@ interface TaskCardProps {
   onDelete: () => void;
   onEdit: () => void;
   theme: Theme;
+  t: Translation;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -113,6 +121,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDelete,
   onEdit,
   theme,
+  t,
 }) => {
   const cardStyles = createTaskCardStyles(theme);
 
@@ -161,14 +170,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
           {task.dueDate && !task.recurring && (
             <Text style={[cardStyles.dueDate, { color: theme.textSecondary }]}>
-              {formatDueDate(task.dueDate)}
+              {formatDueDate(task.dueDate, t)}
             </Text>
           )}
 
           {task.recurring && (
             <Text style={[cardStyles.recurring, { color: theme.textSecondary }]}>
-              {`Alle ${task.recurringDays || 1} Tage`}
-              {` · ${formatNextDate(recurringBaseDate, task.recurringDays)}`}
+              {`${t.everyXDays.replace('{count}', String(task.recurringDays || 1))}`}
+              {` · ${formatNextDate(recurringBaseDate, task.recurringDays, t)}`}
             </Text>
           )}
 
@@ -188,7 +197,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
             return daysUntilReset > 0 ? (
               <View style={cardStyles.resetBadge}>
-                <Text style={cardStyles.resetText}>⏳ In {daysUntilReset} Tagen wieder</Text>
+                <Text style={cardStyles.resetText}>⏳ {t.inDaysAgain.replace('{count}', String(daysUntilReset))}</Text>
               </View>
             ) : null;
           })()}
