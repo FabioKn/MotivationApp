@@ -8,15 +8,17 @@ import {
   Text,
   TouchableOpacity,
   useColorScheme,
-  View
+  View,
 } from 'react-native';
-import ParticleExplosion from '../components/ParticleExplosion';
-import TaskForm from '../components/TaskForm';
-import TaskList, { Task } from '../components/TaskList';
-import { darkTheme, lightTheme, type Theme } from '../constants/theme';
-import SoundManager from '../utils/SoundManager';
+import ParticleExplosion from '../../src/components/ParticleExplosion';
+import TaskForm from '../../src/components/TaskForm';
+import TaskList, { Task } from '../../src/components/TaskList';
+import { darkTheme, lightTheme, type Theme } from '../../src/constants/theme';
+import SoundManager from '../../src/utils/SoundManager';
 
 const { width, height } = Dimensions.get('window');
+
+type SortBy = 'dueDate' | 'streak' | 'type';
 
 export default function Home() {
   const colorScheme = useColorScheme();
@@ -26,22 +28,18 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [particleKey, setParticleKey] = useState(0);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const soundManagerRef = useRef<SoundManager | null>(null);
-
-
+  const [sortBy, setSortBy] = useState<SortBy>('dueDate');
+  const [showCompleted, setShowCompleted] = useState(true);
   const [forceTheme, setForceTheme] = useState<'light' | 'dark' | null>(null);
+  const soundManagerRef = useRef<SoundManager | null>(null);
 
   const effectiveIsDark = forceTheme ? forceTheme === 'dark' : isDark;
   const theme: Theme = effectiveIsDark ? darkTheme : lightTheme;
-
   const styles = createStyles(theme);
 
-  // Sounds initialisieren
   useEffect(() => {
     soundManagerRef.current = new SoundManager();
     soundManagerRef.current.init();
-
-    // Tasks laden
     loadTasks();
 
     return () => {
@@ -49,7 +47,6 @@ export default function Home() {
     };
   }, []);
 
-  // Tasks speichern beim Update
   useEffect(() => {
     saveTasks();
   }, [tasks]);
@@ -59,7 +56,6 @@ export default function Home() {
       const stored = await AsyncStorage.getItem('tasks');
       if (stored) {
         const parsed: Task[] = JSON.parse(stored);
-        // Überprüfe auf abgelaufene wiederkehrende Tasks
         const updated = parsed.map((task) => {
           if (task.recurring && task.lastCompleted) {
             const lastDate = new Date(task.lastCompleted);
@@ -87,6 +83,28 @@ export default function Home() {
     } catch (error) {
       console.error('Fehler beim Speichern:', error);
     }
+  };
+
+  const getSortedTasks = () => {
+    let filtered = showCompleted ? tasks : tasks.filter((t) => !t.completed);
+
+    return filtered.sort((a, b) => {
+      if (sortBy === 'dueDate') {
+        // Zuerst offene, dann nach Datum (NÄCHSTE ZUERST!)
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+
+        const aDate = a.dueDate || a.lastCompleted || a.createdAt;
+        const bDate = b.dueDate || b.lastCompleted || b.createdAt;
+        return new Date(bDate).getTime() - new Date(aDate).getTime();  
+      } else if (sortBy === 'streak') {
+        return (b.streak ?? 0) - (a.streak ?? 0);
+      } else if (sortBy === 'type') {
+        const aType = a.recurring ? 'recurring' : 'once';
+        const bType = b.recurring ? 'recurring' : 'once';
+        return aType.localeCompare(bType);
+      }
+      return 0;
+    });
   };
 
   const addTask = (
@@ -128,36 +146,32 @@ export default function Home() {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // Sound SOFORT abspielen
     if (!task.completed) {
-      soundManagerRef.current?.play('complete');
       setParticleKey((prev) => prev + 1);
+      soundManagerRef.current?.play('complete');
     }
 
-      setTasks(
-        tasks.map((t) => {
-          if (t.id === taskId) {
-            const isNowCompleted = !t.completed;
-            
-            // Streak nur für wiederkehrende Tasks
-            let newStreak = t.streak ?? 0;
-            if (t.recurring) {
-              newStreak = isNowCompleted 
-                ? newStreak + 1
-                : Math.max(0, newStreak - 1);
-            }
+    setTasks(
+      tasks.map((t) => {
+        if (t.id === taskId) {
+          const isNowCompleted = !t.completed;
 
-            return {
-              ...t,
-              completed: isNowCompleted,
-              streak: newStreak,
-              lastCompleted: isNowCompleted ? new Date().toISOString() : t.lastCompleted,
-            };
+          let newStreak = t.streak ?? 0;
+          if (t.recurring) {
+            newStreak = isNowCompleted ? newStreak + 1 : Math.max(0, newStreak - 1);
           }
-          return t;
-        })
-      );
-    };
+
+          return {
+            ...t,
+            completed: isNowCompleted,
+            streak: newStreak,
+            lastCompleted: isNowCompleted ? new Date().toISOString() : t.lastCompleted,
+          };
+        }
+        return t;
+      })
+    );
+  };
 
   const deleteTask = (taskId: string) => {
     setTasks(tasks.filter((t) => t.id !== taskId));
@@ -170,10 +184,10 @@ export default function Home() {
   };
 
   const completedCount = tasks.filter((t) => t.completed).length;
+  const sortedTasks = getSortedTasks();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header */}
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <View>
@@ -182,22 +196,74 @@ export default function Home() {
             {completedCount} von {tasks.length} erledigt
           </Text>
         </View>
-  
-  <TouchableOpacity
-    onPress={() => {
-      if (forceTheme === null) {
-        setForceTheme(isDark ? 'light' : 'dark');
-      } else {
-        setForceTheme(null);
-      }
-    }}
-    style={styles.themeButton}
-  >
-    <Text style={styles.themeIcon}>
-      {forceTheme === 'dark' ? '☀️' : forceTheme === 'light' ? '🌙' : (isDark ? '☀️' : '🌙')}
-    </Text>
-  </TouchableOpacity>
-</View>
+
+        <TouchableOpacity
+          onPress={async () => {
+            let newTheme: 'light' | 'dark' | null;
+            if (forceTheme === null) {
+              newTheme = isDark ? 'light' : 'dark';
+            } else {
+              newTheme = null;
+            }
+            setForceTheme(newTheme);
+            await AsyncStorage.setItem('forcedTheme', newTheme || 'auto');
+          }}
+          style={styles.themeButton}
+        >
+          <Text style={styles.themeIcon}>
+            {forceTheme === 'dark' ? '☀️' : forceTheme === 'light' ? '🌙' : isDark ? '☀️' : '🌙'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Sortierung & Filter */}
+      <View style={[styles.controls, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        <View style={styles.sortButtons}>
+          {(['dueDate', 'streak', 'type'] as const).map((sort) => (
+            <TouchableOpacity
+              key={sort}
+              style={[
+                styles.sortButton,
+                sortBy === sort && styles.sortButtonActive,
+                {
+                  backgroundColor: sortBy === sort ? theme.accent : theme.surface,
+                  borderColor: theme.border,
+                },
+              ]}
+              onPress={() => setSortBy(sort)}
+            >
+              <Text
+                style={[
+                  styles.sortButtonText,
+                  { color: sortBy === sort ? '#fff' : theme.text },
+                ]}
+              >
+                {sort === 'dueDate' ? '📅' : sort === 'streak' ? '🔥' : '📋'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            {
+              backgroundColor: showCompleted ? theme.accent : theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+          onPress={() => setShowCompleted(!showCompleted)}
+        >
+          <Text
+            style={[
+              styles.filterButtonText,
+              { color: showCompleted ? '#fff' : theme.text },
+            ]}
+          >
+            {showCompleted ? 'Alle' : 'Offen'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Particle Explosion */}
       {particleKey > 0 && <ParticleExplosion key={particleKey} theme={theme} />}
@@ -208,7 +274,7 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
       >
         <TaskList
-          tasks={tasks}
+          tasks={sortedTasks}
           onComplete={completeTask}
           onDelete={deleteTask}
           onEdit={startEditTask}
@@ -255,6 +321,9 @@ const createStyles = (theme: Theme) =>
       paddingHorizontal: 20,
       paddingBottom: 20,
       borderBottomWidth: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
     },
     title: {
       fontSize: 32,
@@ -264,6 +333,50 @@ const createStyles = (theme: Theme) =>
     subtitle: {
       fontSize: 14,
       fontWeight: '500',
+    },
+    themeButton: {
+      padding: 8,
+    },
+    themeIcon: {
+      fontSize: 24,
+    },
+    controls: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      gap: 8,
+      alignItems: 'center',
+    },
+    sortButtons: {
+      flexDirection: 'row',
+      gap: 6,
+      flex: 1,
+    },
+    sortButton: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    sortButtonActive: {},
+    sortButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    filterButton: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    filterButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
     },
     scrollView: {
       flex: 1,
@@ -289,11 +402,5 @@ const createStyles = (theme: Theme) =>
       fontSize: 32,
       color: '#ffffff',
       fontWeight: '300',
-    },
-    themeButton: {
-      padding: 8,
-    },
-    themeIcon: {
-      fontSize: 24,
     },
   });
