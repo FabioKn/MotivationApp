@@ -198,12 +198,12 @@ export default function Menu() {
           <Text
             style={[styles.footerText, { color: theme.textSecondary }]}
           >
-            Gebaut mit ❤️ von dir
+            Für Satisfying To-Dos und Motivation
           </Text>
           <Text
             style={[styles.footerSmall, { color: theme.textSecondary }]}
           >
-            © 2026 To-Dos App
+            © 2026 Satisfying To-Dos App, by Fabio
           </Text>
         </View>
       </ScrollView>
