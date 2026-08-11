@@ -124,33 +124,40 @@ export default function Home() {
     soundManagerRef.current?.play('add');
   };
 
-  const completeTask = async (taskId: string) => {
+  const completeTask = (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // Particle-Explosion nur wenn wir kompletten (nicht beim uncomplete)
+    // Sound SOFORT abspielen
     if (!task.completed) {
+      soundManagerRef.current?.play('complete');
       setParticleKey((prev) => prev + 1);
-      await soundManagerRef.current?.play('complete');
     }
 
-    // Task aktualisieren - TOGGLE completed
-    setTasks(
-      tasks.map((t) => {
-        if (t.id === taskId) {
-          const isNowCompleted = !t.completed; // TOGGLE!
-          const newStreak = isNowCompleted && t.recurring ? (t.streak ?? 0) + 1 : t.streak ?? 0;
-          return {
-            ...t,
-            completed: isNowCompleted,
-            streak: newStreak,
-            lastCompleted: isNowCompleted ? new Date().toISOString() : t.lastCompleted,
-          };
-        }
-        return t;
-      })
-    );
-  };
+      setTasks(
+        tasks.map((t) => {
+          if (t.id === taskId) {
+            const isNowCompleted = !t.completed;
+            
+            // Streak nur für wiederkehrende Tasks
+            let newStreak = t.streak ?? 0;
+            if (t.recurring) {
+              newStreak = isNowCompleted 
+                ? newStreak + 1
+                : Math.max(0, newStreak - 1);
+            }
+
+            return {
+              ...t,
+              completed: isNowCompleted,
+              streak: newStreak,
+              lastCompleted: isNowCompleted ? new Date().toISOString() : t.lastCompleted,
+            };
+          }
+          return t;
+        })
+      );
+    };
 
   const deleteTask = (taskId: string) => {
     setTasks(tasks.filter((t) => t.id !== taskId));
